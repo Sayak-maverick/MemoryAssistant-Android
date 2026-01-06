@@ -3,20 +3,19 @@ package com.memoryassistant
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
+import com.memoryassistant.data.models.Item
+import com.memoryassistant.ui.components.ItemCard
 import com.memoryassistant.ui.theme.MemoryAssistantTheme
 
 /**
@@ -45,8 +44,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),  // Fill the entire screen
                     color = MaterialTheme.colorScheme.background  // Use theme's background color
                 ) {
-                    // Show our greeting screen
-                    GreetingScreen()
+                    // Show our home screen with item list
+                    HomeScreen()
                 }
             }
         }
@@ -54,57 +53,143 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * GreetingScreen - Our first custom screen component
+ * HomeScreen - The main screen showing all items
  *
- * @Composable means this function creates UI elements
- * It's like a React component - it describes what should be on screen
+ * This replaces the GreetingScreen with a list of items.
+ * In Step 4, we'll load these from a database.
+ * For now, we're using hardcoded dummy data.
  */
 @Composable
-fun GreetingScreen() {
-    // Column arranges its children vertically (one on top of another)
-    Column(
-        modifier = Modifier
-            .fillMaxSize()      // Take up full screen
-            .padding(24.dp),    // Add padding around edges (dp = density-independent pixels)
+fun HomeScreen() {
+    /**
+     * Scaffold - Material Design 3 layout structure
+     * Provides app bar, floating action button, etc.
+     */
+    Scaffold(
+        topBar = {
+            // Top app bar with title
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "Memory Assistant",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { paddingValues ->
+        /**
+         * Get dummy data (hardcoded items)
+         * Later, this will come from a database
+         */
+        val items = getDummyItems()
 
-        // Center everything vertically and horizontally
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // First text element - the title
-        Text(
-            text = "Memory Assistant",
-            fontSize = 32.sp,              // sp = scalable pixels (for text)
-            fontWeight = FontWeight.Bold,   // Make it bold
-            color = MaterialTheme.colorScheme.primary  // Use primary theme color
-        )
-
-        // Second text element - subtitle
-        Text(
-            text = "Hello World! 👋",
-            fontSize = 20.sp,
-            modifier = Modifier.padding(top = 16.dp),  // Add space above
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        // Third text element - description
-        Text(
-            text = "Your personal memory assistant is ready!",
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 8.dp),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)  // Slightly transparent
-        )
+        /**
+         * LazyColumn - Like RecyclerView, but simpler
+         * It's "lazy" because it only renders items visible on screen
+         * This is efficient for long lists
+         *
+         * Think of it like map() in React, but optimized for scrolling
+         */
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),  // Respect the Scaffold padding
+            contentPadding = PaddingValues(vertical = 8.dp)  // Padding for the list
+        ) {
+            /**
+             * items() function - Similar to list.map() in JavaScript
+             * For each item in the list, create an ItemCard
+             */
+            items(items) { item ->
+                ItemCard(
+                    item = item,
+                    onClick = {
+                        // TODO: Navigate to item detail screen
+                        // For now, just a placeholder
+                    }
+                )
+            }
+        }
     }
 }
 
 /**
- * Preview function - This lets you see your UI in Android Studio without running the app!
- * It's super useful for quick development
+ * getDummyItems - Returns hardcoded sample items
+ *
+ * This simulates data we'll later get from a database.
+ * We're using realistic examples of things people often misplace.
+ */
+fun getDummyItems(): List<Item> {
+    return listOf(
+        Item(
+            id = "1",
+            name = "Car Keys",
+            description = "Toyota keys with red keychain",
+            createdAt = System.currentTimeMillis() - 3600000,  // 1 hour ago
+            labels = listOf("important", "daily")
+        ),
+        Item(
+            id = "2",
+            name = "Wallet",
+            description = "Brown leather wallet with credit cards",
+            createdAt = System.currentTimeMillis() - 7200000,  // 2 hours ago
+            labels = listOf("important")
+        ),
+        Item(
+            id = "3",
+            name = "Reading Glasses",
+            description = "Black frame reading glasses",
+            createdAt = System.currentTimeMillis() - 86400000,  // 1 day ago
+            labels = listOf("daily")
+        ),
+        Item(
+            id = "4",
+            name = "Phone Charger",
+            description = "USB-C white charger cable",
+            createdAt = System.currentTimeMillis() - 172800000,  // 2 days ago
+        ),
+        Item(
+            id = "5",
+            name = "Headphones",
+            description = "Sony wireless headphones",
+            createdAt = System.currentTimeMillis() - 259200000,  // 3 days ago
+            labels = listOf("electronics")
+        ),
+        Item(
+            id = "6",
+            name = "House Keys",
+            description = "Spare keys with blue keychain",
+            createdAt = System.currentTimeMillis() - 604800000,  // 1 week ago
+            labels = listOf("important", "backup")
+        ),
+        Item(
+            id = "7",
+            name = "Work Badge",
+            description = "Office access card",
+            createdAt = System.currentTimeMillis() - 1209600000,  // 2 weeks ago
+            labels = listOf("work", "important")
+        ),
+        Item(
+            id = "8",
+            name = "Backpack",
+            description = "Black Nike backpack",
+            createdAt = System.currentTimeMillis() - 1814400000,  // 3 weeks ago
+        )
+    )
+}
+
+/**
+ * Preview function - See the HomeScreen in Android Studio
  */
 @Preview(showBackground = true)
 @Composable
-fun GreetingScreenPreview() {
+fun HomeScreenPreview() {
     MemoryAssistantTheme {
-        GreetingScreen()
+        HomeScreen()
     }
 }
