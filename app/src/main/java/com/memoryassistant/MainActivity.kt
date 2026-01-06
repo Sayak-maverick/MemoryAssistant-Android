@@ -14,11 +14,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.memoryassistant.data.database.AppDatabase
 import com.memoryassistant.data.models.Item
+import com.memoryassistant.data.repository.ItemRepository
 import com.memoryassistant.data.services.AuthService
 import com.memoryassistant.ui.components.ItemCard
 import com.memoryassistant.ui.screens.LoginScreen
 import com.memoryassistant.ui.theme.MemoryAssistantTheme
+import kotlinx.coroutines.launch
 
 /**
  * MainActivity - The main entry point of your app
@@ -40,8 +43,22 @@ class MainActivity : ComponentActivity() {
     // Create AuthService instance (our authentication helper)
     private val authService = AuthService()
 
+    // Create database and repository instances
+    private lateinit var database: AppDatabase
+    private lateinit var repository: ItemRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        /**
+         * Initialize Room database
+         *
+         * AppDatabase.getDatabase() - returns the singleton database instance
+         * itemDao() - gets the DAO (Data Access Object) for items
+         * ItemRepository - wraps the DAO with convenient methods
+         */
+        database = AppDatabase.getDatabase(applicationContext)
+        repository = ItemRepository(database.itemDao())
 
         // setContent is where we build our UI using Jetpack Compose
         // Everything inside the { } is what gets displayed on screen
@@ -59,8 +76,10 @@ class MainActivity : ComponentActivity() {
                      * This composable checks if user is logged in and shows:
                      * - LoginScreen if not logged in
                      * - HomeScreen if logged in
+                     *
+                     * Now we pass the repository to access database
                      */
-                    AuthenticationFlow(authService)
+                    AuthenticationFlow(authService, repository)
                 }
             }
         }
@@ -78,7 +97,7 @@ class MainActivity : ComponentActivity() {
  * - This triggers recomposition and shows HomeScreen
  */
 @Composable
-fun AuthenticationFlow(authService: AuthService) {
+fun AuthenticationFlow(authService: AuthService, repository: ItemRepository) {
     /**
      * Track login state
      *
@@ -95,6 +114,7 @@ fun AuthenticationFlow(authService: AuthService) {
     if (isLoggedIn) {
         // User is logged in - show the home screen
         HomeScreen(
+            repository = repository,
             onLogout = {
                 // When user logs out, sign them out and update state
                 authService.signOut()
@@ -116,14 +136,47 @@ fun AuthenticationFlow(authService: AuthService) {
 /**
  * HomeScreen - The main screen showing all items
  *
- * This replaces the GreetingScreen with a list of items.
- * In Step 4, we'll load these from a database.
- * For now, we're using hardcoded dummy data.
+ * NOW USING ROOM DATABASE!
+ * - Items are loaded from the local SQLite database
+ * - Data persists across app restarts
+ * - Uses Flow to automatically update when data changes
  *
  * NEW: Added logout button in the top bar
  */
 @Composable
-fun HomeScreen(onLogout: () -> Unit = {}) {
+fun HomeScreen(repository: ItemRepository, onLogout: () -> Unit = {}) {
+    /**
+     * Collect items from the database as State
+     *
+     * repository.getAllItems() - returns Flow<List<Item>>
+     * collectAsState() - converts Flow to Compose State
+     *
+     * This is REACTIVE - when database changes, UI automatically updates!
+     * Similar to observing LiveData in traditional Android
+     */
+    val items by repository.getAllItems().collectAsState(initial = emptyList())
+
+    /**
+     * Coroutine scope for launching async operations
+     *
+     * rememberCoroutineScope - gets a scope tied to this composable
+     * We'll use this to insert dummy data
+     */
+    val coroutineScope = rememberCoroutineScope()
+
+    /**
+     * Insert dummy data on first load (if database is empty)
+     *
+     * LaunchedEffect - runs when the composable is first created
+     * key = Unit means it only runs once (doesn't re-run on recomposition)
+     */
+    LaunchedEffect(Unit) {
+        // If database is empty, add dummy data
+        if (items.isEmpty()) {
+            repository.insertDummyData()
+        }
+    }
+
     /**
      * Scaffold - Material Design 3 layout structure
      * Provides app bar, floating action button, etc.
@@ -155,113 +208,57 @@ fun HomeScreen(onLogout: () -> Unit = {}) {
         }
     ) { paddingValues ->
         /**
-         * Get dummy data (hardcoded items)
-         * Later, this will come from a database
+         * Show loading or empty state if no items
          */
-        val items = getDummyItems()
-
-        /**
-         * LazyColumn - Like RecyclerView, but simpler
-         * It's "lazy" because it only renders items visible on screen
-         * This is efficient for long lists
-         *
-         * Think of it like map() in React, but optimized for scrolling
-         */
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),  // Respect the Scaffold padding
-            contentPadding = PaddingValues(vertical = 8.dp)  // Padding for the list
-        ) {
-            /**
-             * items() function - Similar to list.map() in JavaScript
-             * For each item in the list, create an ItemCard
-             */
-            items(items) { item ->
-                ItemCard(
-                    item = item,
-                    onClick = {
-                        // TODO: Navigate to item detail screen
-                        // For now, just a placeholder
-                    }
+        if (items.isEmpty()) {
+            // Show centered text while loading or if truly empty
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Loading items...",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        } else {
+            /**
+             * LazyColumn - Like RecyclerView, but simpler
+             * It's "lazy" because it only renders items visible on screen
+             * This is efficient for long lists
+             *
+             * Think of it like map() in React, but optimized for scrolling
+             */
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),  // Respect the Scaffold padding
+                contentPadding = PaddingValues(vertical = 8.dp)  // Padding for the list
+            ) {
+                /**
+                 * items() function - Similar to list.map() in JavaScript
+                 * For each item in the list, create an ItemCard
+                 */
+                items(items) { item ->
+                    ItemCard(
+                        item = item,
+                        onClick = {
+                            // TODO: Navigate to item detail screen
+                            // For now, just a placeholder
+                        }
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * getDummyItems - Returns hardcoded sample items
+ * NOTE: getDummyItems() has been removed!
  *
- * This simulates data we'll later get from a database.
- * We're using realistic examples of things people often misplace.
+ * We now use Room database with repository.insertDummyData()
+ * The data is stored in the database and persists across app restarts
  */
-fun getDummyItems(): List<Item> {
-    return listOf(
-        Item(
-            id = "1",
-            name = "Car Keys",
-            description = "Toyota keys with red keychain",
-            createdAt = System.currentTimeMillis() - 3600000,  // 1 hour ago
-            labels = listOf("important", "daily")
-        ),
-        Item(
-            id = "2",
-            name = "Wallet",
-            description = "Brown leather wallet with credit cards",
-            createdAt = System.currentTimeMillis() - 7200000,  // 2 hours ago
-            labels = listOf("important")
-        ),
-        Item(
-            id = "3",
-            name = "Reading Glasses",
-            description = "Black frame reading glasses",
-            createdAt = System.currentTimeMillis() - 86400000,  // 1 day ago
-            labels = listOf("daily")
-        ),
-        Item(
-            id = "4",
-            name = "Phone Charger",
-            description = "USB-C white charger cable",
-            createdAt = System.currentTimeMillis() - 172800000,  // 2 days ago
-        ),
-        Item(
-            id = "5",
-            name = "Headphones",
-            description = "Sony wireless headphones",
-            createdAt = System.currentTimeMillis() - 259200000,  // 3 days ago
-            labels = listOf("electronics")
-        ),
-        Item(
-            id = "6",
-            name = "House Keys",
-            description = "Spare keys with blue keychain",
-            createdAt = System.currentTimeMillis() - 604800000,  // 1 week ago
-            labels = listOf("important", "backup")
-        ),
-        Item(
-            id = "7",
-            name = "Work Badge",
-            description = "Office access card",
-            createdAt = System.currentTimeMillis() - 1209600000,  // 2 weeks ago
-            labels = listOf("work", "important")
-        ),
-        Item(
-            id = "8",
-            name = "Backpack",
-            description = "Black Nike backpack",
-            createdAt = System.currentTimeMillis() - 1814400000,  // 3 weeks ago
-        )
-    )
-}
-
-/**
- * Preview function - See the HomeScreen in Android Studio
- */
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    MemoryAssistantTheme {
-        HomeScreen()
-    }
-}

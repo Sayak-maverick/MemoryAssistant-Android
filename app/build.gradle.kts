@@ -5,6 +5,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")  // Apply Google Services plugin for Firebase
+    id("com.google.devtools.ksp") version "1.9.20-1.0.14"  // KSP for Room annotation processing
 }
 
 android {
@@ -85,6 +86,15 @@ dependencies {
 
     // Firebase Storage - stores images and files
     implementation("com.google.firebase:firebase-storage-ktx")
+
+    // Room Database - Local SQLite database (like IndexedDB for web)
+    // Room is Android's recommended way to work with SQLite databases
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")  // Kotlin extensions (coroutines support)
+    ksp("androidx.room:room-compiler:2.6.1")  // Annotation processor for generating code
+
+    // Gson - JSON library for type converters
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Testing libraries (we'll use these later)
     testImplementation("junit:junit:4.13.2")
