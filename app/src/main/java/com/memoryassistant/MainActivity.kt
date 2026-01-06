@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -15,7 +15,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.memoryassistant.data.models.Item
+import com.memoryassistant.data.services.AuthService
 import com.memoryassistant.ui.components.ItemCard
+import com.memoryassistant.ui.screens.LoginScreen
 import com.memoryassistant.ui.theme.MemoryAssistantTheme
 
 /**
@@ -28,8 +30,15 @@ import com.memoryassistant.ui.theme.MemoryAssistantTheme
  * 1. ComponentActivity - Base class that gives us Android functionality
  * 2. onCreate - Called when Android creates this screen (like a constructor)
  * 3. setContent - This is where we define what shows on the screen using Compose
+ *
+ * NEW: Authentication Flow
+ * - If user is NOT logged in -> show LoginScreen
+ * - If user IS logged in -> show HomeScreen
  */
 class MainActivity : ComponentActivity() {
+
+    // Create AuthService instance (our authentication helper)
+    private val authService = AuthService()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,11 +53,63 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),  // Fill the entire screen
                     color = MaterialTheme.colorScheme.background  // Use theme's background color
                 ) {
-                    // Show our home screen with item list
-                    HomeScreen()
+                    /**
+                     * AuthenticationFlow - decides which screen to show
+                     *
+                     * This composable checks if user is logged in and shows:
+                     * - LoginScreen if not logged in
+                     * - HomeScreen if logged in
+                     */
+                    AuthenticationFlow(authService)
                 }
             }
         }
+    }
+}
+
+/**
+ * AuthenticationFlow - Navigation between Login and Home screens
+ *
+ * This manages the authentication state and decides which screen to show.
+ *
+ * State Management:
+ * - isLoggedIn: tracks whether user is authenticated
+ * - When user logs in successfully, we update isLoggedIn to true
+ * - This triggers recomposition and shows HomeScreen
+ */
+@Composable
+fun AuthenticationFlow(authService: AuthService) {
+    /**
+     * Track login state
+     *
+     * Initialize with the current auth state from Firebase
+     * authService.isUserLoggedIn() checks if someone is logged in
+     */
+    var isLoggedIn by remember { mutableStateOf(authService.isUserLoggedIn()) }
+
+    /**
+     * Conditional rendering - like if/else in React
+     *
+     * if (condition) { ShowThisScreen } else { ShowThatScreen }
+     */
+    if (isLoggedIn) {
+        // User is logged in - show the home screen
+        HomeScreen(
+            onLogout = {
+                // When user logs out, sign them out and update state
+                authService.signOut()
+                isLoggedIn = false
+            }
+        )
+    } else {
+        // User is NOT logged in - show login screen
+        LoginScreen(
+            authService = authService,
+            onLoginSuccess = {
+                // When login succeeds, update state to show home screen
+                isLoggedIn = true
+            }
+        )
     }
 }
 
@@ -58,22 +119,33 @@ class MainActivity : ComponentActivity() {
  * This replaces the GreetingScreen with a list of items.
  * In Step 4, we'll load these from a database.
  * For now, we're using hardcoded dummy data.
+ *
+ * NEW: Added logout button in the top bar
  */
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onLogout: () -> Unit = {}) {
     /**
      * Scaffold - Material Design 3 layout structure
      * Provides app bar, floating action button, etc.
      */
     Scaffold(
         topBar = {
-            // Top app bar with title
+            // Top app bar with title and logout button
             CenterAlignedTopAppBar(
                 title = {
                     Text(
                         text = "Memory Assistant",
                         fontWeight = FontWeight.Bold
                     )
+                },
+                actions = {
+                    // Logout button
+                    TextButton(onClick = onLogout) {
+                        Text(
+                            text = "Logout",
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,

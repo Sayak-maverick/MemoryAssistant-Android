@@ -7,4 +7,8 @@ plugins {
 
     // Kotlin Plugin - lets us write code in Kotlin language
     id("org.jetbrains.kotlin.android") version "1.9.20" apply false
+
+    // Google Services Plugin - allows Firebase to work with your app
+    // This reads google-services.json and generates the necessary config
+    id("com.google.gms.google-services") version "4.4.0" apply false
 }

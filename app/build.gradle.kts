@@ -4,6 +4,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")  // Apply Google Services plugin for Firebase
 }
 
 android {
@@ -71,6 +72,19 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")  // Material Design 3 components
+
+    // Firebase - Backend as a Service (BaaS)
+    // BOM (Bill of Materials) - ensures all Firebase libraries use compatible versions
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+
+    // Firebase Authentication - handles user login/signup
+    implementation("com.google.firebase:firebase-auth-ktx")
+
+    // Firebase Firestore - NoSQL cloud database
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // Firebase Storage - stores images and files
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // Testing libraries (we'll use these later)
     testImplementation("junit:junit:4.13.2")
