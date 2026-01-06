@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Backup rules - tells Android what data to backup to the cloud
+    For now, we'll allow full backup
+-->
+<full-backup-content>
+    <!-- Include everything by default -->
+</full-backup-content>

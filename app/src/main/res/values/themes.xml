@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    themes.xml - App theme definition for older Android XML-based theming
+    Our main theming is done in Compose (Theme.kt), but we need this for compatibility
+-->
+<resources>
+    <style name="Theme.MemoryAssistant" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

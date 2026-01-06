@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    strings.xml - All text strings used in your app
+
+    Why do we keep strings here instead of hardcoding them in code?
+    1. Easy to translate to other languages
+    2. Easy to change text without touching code
+    3. Consistency across the app
+-->
+<resources>
+    <string name="app_name">Memory Assistant</string>
+    <string name="hello_world">Hello World!</string>
+    <string name="welcome_message">Your personal memory assistant is ready!</string>
+</resources>
