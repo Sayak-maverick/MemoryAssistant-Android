@@ -96,6 +96,19 @@ dependencies {
     // Gson - JSON library for type converters
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // CameraX - Modern camera API
+    val cameraxVersion = "1.3.1"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // Coil - Image loading library for Compose
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Accompanist - Permissions helper for Compose
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
     // Testing libraries (we'll use these later)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

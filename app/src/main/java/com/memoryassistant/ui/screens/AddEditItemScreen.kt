@@ -1,20 +1,40 @@
 package com.memoryassistant.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import coil.compose.rememberAsyncImagePainter
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.memoryassistant.data.models.Item
 import com.memoryassistant.data.repository.ItemRepository
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * AddEditItemScreen - Screen for adding a new item or editing an existing one
@@ -29,8 +49,10 @@ import kotlinx.coroutines.launch
  * - Saving data to Room database
  * - Navigation callbacks (onBack, onSaved)
  * - Edit vs Add mode
+ * - Camera capture and gallery picker
+ * - Image display with Coil
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun AddEditItemScreen(
     repository: ItemRepository,
@@ -47,8 +69,10 @@ fun AddEditItemScreen(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var labels by remember { mutableStateOf("") }  // Comma-separated string
+    var imageUri by remember { mutableStateOf<Uri?>(null) }  // Selected image URI
     var isLoading by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showImageOptionsDialog by remember { mutableStateOf(false) }
 
     /**
      * Track if we're in edit mode
@@ -59,6 +83,48 @@ fun AddEditItemScreen(
      * Coroutine scope for async operations
      */
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    /**
+     * Camera permission state
+     */
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+
+    /**
+     * Create a temporary file for camera capture
+     */
+    fun createImageFile(context: Context): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = context.getExternalFilesDir(null)
+        return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
+    }
+
+    /**
+     * Camera launcher - captures photo and saves to file
+     */
+    val cameraImageFile = remember { mutableStateOf<File?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            cameraImageFile.value?.let { file ->
+                imageUri = Uri.fromFile(file)
+            }
+        }
+        showImageOptionsDialog = false
+    }
+
+    /**
+     * Gallery launcher - picks photo from gallery
+     */
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            imageUri = it
+        }
+        showImageOptionsDialog = false
+    }
 
     /**
      * Load existing item data if in edit mode
@@ -73,6 +139,7 @@ fun AddEditItemScreen(
                     name = it.name
                     description = it.description ?: ""
                     labels = it.labels.joinToString(", ")  // Convert list to string
+                    imageUri = it.imageUrl?.let { url -> Uri.parse(url) }
                 }
             }
         }
@@ -172,6 +239,74 @@ fun AddEditItemScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            /**
+             * Photo section
+             */
+            Text(
+                text = "Photo (optional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Image preview or add photo button
+            if (imageUri != null) {
+                // Show image with remove button
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Box {
+                        // Display image using Coil
+                        Image(
+                            painter = rememberAsyncImagePainter(imageUri),
+                            contentDescription = "Item photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        // Remove button overlay
+                        IconButton(
+                            onClick = { imageUri = null },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        ) {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Remove photo",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Show add photo button
+                OutlinedButton(
+                    onClick = { showImageOptionsDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add Photo")
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             /**
@@ -208,7 +343,8 @@ fun AddEditItemScreen(
                                         val updatedItem = item.copy(
                                             name = name,
                                             description = description.ifBlank { null },
-                                            labels = labelsList
+                                            labels = labelsList,
+                                            imageUrl = imageUri?.toString()
                                         )
                                         repository.updateItem(updatedItem)
 
@@ -224,7 +360,8 @@ fun AddEditItemScreen(
                                 repository.addItem(
                                     name = name,
                                     description = description.ifBlank { null },
-                                    labels = labelsList
+                                    labels = labelsList,
+                                    imageUrl = imageUri?.toString()
                                 )
 
                                 // Navigate back
@@ -251,6 +388,72 @@ fun AddEditItemScreen(
                 }
             }
         }
+    }
+
+    /**
+     * Image options dialog - choose camera or gallery
+     */
+    if (showImageOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageOptionsDialog = false },
+            title = { Text("Add Photo") },
+            text = {
+                Column {
+                    // Camera option
+                    TextButton(
+                        onClick = {
+                            // Check camera permission
+                            if (cameraPermissionState.status.isGranted) {
+                                // Permission granted, launch camera
+                                val file = createImageFile(context)
+                                cameraImageFile.value = file
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.provider",
+                                    file
+                                )
+                                cameraLauncher.launch(uri)
+                            } else {
+                                // Request permission
+                                cameraPermissionState.launchPermissionRequest()
+                                showImageOptionsDialog = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Take Photo", modifier = Modifier.weight(1f))
+                    }
+
+                    // Gallery option
+                    TextButton(
+                        onClick = {
+                            galleryLauncher.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Choose from Gallery", modifier = Modifier.weight(1f))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showImageOptionsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.memoryassistant.ui.components
 
+import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,11 +9,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
 import com.memoryassistant.data.models.Item
 import com.memoryassistant.ui.theme.MemoryAssistantTheme
 import java.text.SimpleDateFormat
@@ -67,22 +72,35 @@ fun ItemCard(
             verticalAlignment = Alignment.CenterVertically  // Center items vertically
         ) {
             /**
-             * Icon/Emoji Circle
-             * For now, we'll show a colored circle with emoji
+             * Icon/Emoji Circle OR Image
+             * If item has imageUrl, show the image, otherwise show emoji
              */
-            Box(
-                modifier = Modifier
-                    .size(48.dp)  // 48x48 dp circle
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(24.dp)  // Circle (half of size)
-                    ),
-                contentAlignment = Alignment.Center  // Center the emoji
-            ) {
-                Text(
-                    text = getEmojiForItem(item.name),  // Get emoji based on item name
-                    fontSize = 24.sp
+            if (item.imageUrl != null) {
+                // Show image thumbnail
+                Image(
+                    painter = rememberAsyncImagePainter(Uri.parse(item.imageUrl)),
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(8.dp)),  // Slightly rounded corners for images
+                    contentScale = ContentScale.Crop  // Crop to fill the space
                 )
+            } else {
+                // Show emoji icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)  // 48x48 dp circle
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(24.dp)  // Circle (half of size)
+                        ),
+                    contentAlignment = Alignment.Center  // Center the emoji
+                ) {
+                    Text(
+                        text = getEmojiForItem(item.name),  // Get emoji based on item name
+                        fontSize = 24.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))  // Space between icon and text
