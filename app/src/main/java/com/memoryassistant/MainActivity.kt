@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,7 @@ import com.memoryassistant.data.models.Item
 import com.memoryassistant.data.repository.ItemRepository
 import com.memoryassistant.data.services.AuthService
 import com.memoryassistant.ui.components.ItemCard
+import com.memoryassistant.ui.screens.AddEditItemScreen
 import com.memoryassistant.ui.screens.LoginScreen
 import com.memoryassistant.ui.theme.MemoryAssistantTheme
 import kotlinx.coroutines.launch
@@ -146,6 +149,15 @@ fun AuthenticationFlow(authService: AuthService, repository: ItemRepository) {
 @Composable
 fun HomeScreen(repository: ItemRepository, onLogout: () -> Unit = {}) {
     /**
+     * Navigation state - track which screen to show
+     *
+     * null = home screen (list)
+     * "add" = add new item
+     * itemId = edit that item
+     */
+    var currentScreen by remember { mutableStateOf<String?>(null) }
+
+    /**
      * Collect items from the database as State
      *
      * repository.getAllItems() - returns Flow<List<Item>>
@@ -178,6 +190,54 @@ fun HomeScreen(repository: ItemRepository, onLogout: () -> Unit = {}) {
     }
 
     /**
+     * Show different screens based on navigation state
+     */
+    when (currentScreen) {
+        null -> {
+            // Home screen - show list of items
+            HomeScreenContent(
+                items = items,
+                repository = repository,
+                onLogout = onLogout,
+                onAddItem = { currentScreen = "add" },
+                onEditItem = { itemId -> currentScreen = itemId }
+            )
+        }
+        "add" -> {
+            // Add item screen
+            AddEditItemScreen(
+                repository = repository,
+                itemId = null,
+                onBack = { currentScreen = null },
+                onSaved = { currentScreen = null }
+            )
+        }
+        else -> {
+            // Edit item screen (currentScreen contains the itemId)
+            AddEditItemScreen(
+                repository = repository,
+                itemId = currentScreen,
+                onBack = { currentScreen = null },
+                onSaved = { currentScreen = null }
+            )
+        }
+    }
+}
+
+/**
+ * HomeScreenContent - The list view of items
+ *
+ * Extracted from HomeScreen to separate navigation logic
+ */
+@Composable
+fun HomeScreenContent(
+    items: List<Item>,
+    repository: ItemRepository,
+    onLogout: () -> Unit,
+    onAddItem: () -> Unit,
+    onEditItem: (String) -> Unit
+) {
+    /**
      * Scaffold - Material Design 3 layout structure
      * Provides app bar, floating action button, etc.
      */
@@ -205,6 +265,23 @@ fun HomeScreen(repository: ItemRepository, onLogout: () -> Unit = {}) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            /**
+             * FAB - Floating Action Button
+             *
+             * This is the prominent circular button that floats above the content
+             * Used for the primary action (adding a new item)
+             */
+            FloatingActionButton(
+                onClick = onAddItem,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Item"
+                )
+            }
         }
     ) { paddingValues ->
         /**
@@ -246,8 +323,8 @@ fun HomeScreen(repository: ItemRepository, onLogout: () -> Unit = {}) {
                     ItemCard(
                         item = item,
                         onClick = {
-                            // TODO: Navigate to item detail screen
-                            // For now, just a placeholder
+                            // Navigate to edit screen
+                            onEditItem(item.id)
                         }
                     )
                 }
