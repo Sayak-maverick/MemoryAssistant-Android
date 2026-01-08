@@ -15,7 +15,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +34,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.memoryassistant.data.models.Item
 import com.memoryassistant.data.repository.ItemRepository
+import com.memoryassistant.data.services.AudioService
 import com.memoryassistant.data.services.VisionService
 import kotlinx.coroutines.launch
 import java.io.File
@@ -76,6 +80,11 @@ fun AddEditItemScreen(
     var showImageOptionsDialog by remember { mutableStateOf(false) }
     var isDetectingLabels by remember { mutableStateOf(false) }  // AI detection in progress
     var suggestedLabels by remember { mutableStateOf<List<String>>(emptyList()) }  // AI-detected labels
+    var audioUri by remember { mutableStateOf<Uri?>(null) }  // Recorded audio URI
+    var audioTranscription by remember { mutableStateOf("") }  // Transcribed text
+    var isRecording by remember { mutableStateOf(false) }
+    var isTranscribing by remember { mutableStateOf(false) }
+    var isPlayingAudio by remember { mutableStateOf(false) }
 
     /**
      * Track if we're in edit mode
@@ -92,6 +101,11 @@ fun AddEditItemScreen(
      * Vision API service for object detection
      */
     val visionService = remember { VisionService(context) }
+
+    /**
+     * Audio service for voice notes
+     */
+    val audioService = remember { AudioService(context) }
 
     /**
      * Detect labels in the selected image
@@ -124,6 +138,11 @@ fun AddEditItemScreen(
      * Camera permission state
      */
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+
+    /**
+     * Microphone permission state
+     */
+    val micPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
     /**
      * Create a temporary file for camera capture
@@ -182,6 +201,8 @@ fun AddEditItemScreen(
                     description = it.description ?: ""
                     labels = it.labels.joinToString(", ")  // Convert list to string
                     imageUri = it.imageUrl?.let { url -> Uri.parse(url) }
+                    audioUri = it.audioUrl?.let { url -> Uri.parse(url) }
+                    audioTranscription = it.audioTranscription ?: ""
                 }
             }
         }
@@ -375,6 +396,171 @@ fun AddEditItemScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             /**
+             * Voice Note section
+             */
+            Text(
+                text = "Voice Note (optional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Recording/Transcription status
+            if (isRecording) {
+                Text(
+                    text = "🎙️ Recording...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (isTranscribing) {
+                Text(
+                    text = "🤖 Transcribing audio...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Audio player or record button
+            if (audioUri != null) {
+                // Show audio player card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Play/Stop button
+                            IconButton(
+                                onClick = {
+                                    if (isPlayingAudio) {
+                                        audioService.stopPlayback()
+                                        isPlayingAudio = false
+                                    } else {
+                                        audioService.playAudio(audioUri!!) {
+                                            isPlayingAudio = false
+                                        }
+                                        isPlayingAudio = true
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingAudio) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                    contentDescription = if (isPlayingAudio) "Stop" else "Play",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Text(
+                                text = if (isPlayingAudio) "Playing..." else "Audio Note",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            // Delete button
+                            IconButton(
+                                onClick = {
+                                    audioService.stopPlayback()
+                                    isPlayingAudio = false
+                                    audioUri = null
+                                    audioTranscription = ""
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete audio",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+
+                        // Show transcription if available
+                        if (audioTranscription.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Transcription:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = audioTranscription,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Show record button
+                OutlinedButton(
+                    onClick = {
+                        // Check microphone permission
+                        if (!micPermissionState.status.isGranted) {
+                            micPermissionState.launchPermissionRequest()
+                            return@OutlinedButton
+                        }
+
+                        if (isRecording) {
+                            // Stop recording
+                            val recordedUri = audioService.stopRecording()
+                            isRecording = false
+                            audioUri = recordedUri
+
+                            // Transcribe audio
+                            if (recordedUri != null) {
+                                coroutineScope.launch {
+                                    isTranscribing = true
+                                    try {
+                                        val transcription = audioService.transcribeAudio(recordedUri)
+                                        audioTranscription = transcription
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    } finally {
+                                        isTranscribing = false
+                                    }
+                                }
+                            }
+                        } else {
+                            // Start recording
+                            try {
+                                audioService.startRecording()
+                                isRecording = true
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                // TODO: Show error message
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isRecording) "Stop Recording" else "Record Voice Note")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            /**
              * Save button
              */
             Button(
@@ -409,7 +595,9 @@ fun AddEditItemScreen(
                                             name = name,
                                             description = description.ifBlank { null },
                                             labels = labelsList,
-                                            imageUrl = imageUri?.toString()
+                                            imageUrl = imageUri?.toString(),
+                                            audioUrl = audioUri?.toString(),
+                                            audioTranscription = audioTranscription.ifBlank { null }
                                         )
                                         repository.updateItem(updatedItem)
 
@@ -426,7 +614,9 @@ fun AddEditItemScreen(
                                     name = name,
                                     description = description.ifBlank { null },
                                     labels = labelsList,
-                                    imageUrl = imageUri?.toString()
+                                    imageUrl = imageUri?.toString(),
+                                    audioUrl = audioUri?.toString(),
+                                    audioTranscription = audioTranscription.ifBlank { null }
                                 )
 
                                 // Navigate back

@@ -21,6 +21,9 @@
     <!-- Camera permission - Required to take photos -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Microphone permission - Required for voice notes -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Storage permissions - Required to save images -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

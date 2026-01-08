@@ -65,7 +65,17 @@ data class Item(
      *
      * Note: Room doesn't natively support List<String>, so we need a TypeConverter
      */
-    val labels: List<String> = emptyList()
+    val labels: List<String> = emptyList(),
+
+    /**
+     * Audio recording (voice note) stored as file path or URI
+     */
+    val audioUrl: String? = null,
+
+    /**
+     * Transcription of the audio note (from speech-to-text)
+     */
+    val audioTranscription: String? = null
 )
 
 /**

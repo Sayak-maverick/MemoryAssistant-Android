@@ -51,6 +51,8 @@ class ItemRepository(private val itemDao: ItemDao) {
      * @param description - Item description (optional)
      * @param imageUrl - Image URL (optional)
      * @param labels - List of labels (optional)
+     * @param audioUrl - Audio file URI (optional)
+     * @param audioTranscription - Transcribed text from audio (optional)
      *
      * This is a convenience method that:
      * 1. Generates a unique ID
@@ -61,7 +63,9 @@ class ItemRepository(private val itemDao: ItemDao) {
         name: String,
         description: String? = null,
         imageUrl: String? = null,
-        labels: List<String> = emptyList()
+        labels: List<String> = emptyList(),
+        audioUrl: String? = null,
+        audioTranscription: String? = null
     ) {
         /**
          * Generate a unique ID using UUID
@@ -82,7 +86,9 @@ class ItemRepository(private val itemDao: ItemDao) {
             description = description,
             createdAt = System.currentTimeMillis(),
             imageUrl = imageUrl,
-            labels = labels
+            labels = labels,
+            audioUrl = audioUrl,
+            audioTranscription = audioTranscription
         )
 
         itemDao.insertItem(item)
