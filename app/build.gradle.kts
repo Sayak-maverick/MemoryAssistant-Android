@@ -113,6 +113,9 @@ dependencies {
     implementation("com.google.cloud:google-cloud-vision:3.20.0")
     implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
 
+    // Google Play Services - Location API
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
     // Testing libraries (we'll use these later)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

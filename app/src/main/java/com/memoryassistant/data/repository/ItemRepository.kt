@@ -53,6 +53,9 @@ class ItemRepository(private val itemDao: ItemDao) {
      * @param labels - List of labels (optional)
      * @param audioUrl - Audio file URI (optional)
      * @param audioTranscription - Transcribed text from audio (optional)
+     * @param latitude - GPS latitude (optional)
+     * @param longitude - GPS longitude (optional)
+     * @param locationName - Location address (optional)
      *
      * This is a convenience method that:
      * 1. Generates a unique ID
@@ -65,7 +68,10 @@ class ItemRepository(private val itemDao: ItemDao) {
         imageUrl: String? = null,
         labels: List<String> = emptyList(),
         audioUrl: String? = null,
-        audioTranscription: String? = null
+        audioTranscription: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        locationName: String? = null
     ) {
         /**
          * Generate a unique ID using UUID
@@ -88,7 +94,10 @@ class ItemRepository(private val itemDao: ItemDao) {
             imageUrl = imageUrl,
             labels = labels,
             audioUrl = audioUrl,
-            audioTranscription = audioTranscription
+            audioTranscription = audioTranscription,
+            latitude = latitude,
+            longitude = longitude,
+            locationName = locationName
         )
 
         itemDao.insertItem(item)

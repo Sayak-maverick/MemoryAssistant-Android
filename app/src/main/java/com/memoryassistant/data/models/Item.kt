@@ -75,7 +75,25 @@ data class Item(
     /**
      * Transcription of the audio note (from speech-to-text)
      */
-    val audioTranscription: String? = null
+    val audioTranscription: String? = null,
+
+    /**
+     * GPS Location - Latitude coordinate
+     * Helps you remember where you last saw/used this item
+     */
+    val latitude: Double? = null,
+
+    /**
+     * GPS Location - Longitude coordinate
+     */
+    val longitude: Double? = null,
+
+    /**
+     * Human-readable location name
+     * e.g., "Home", "Office", "123 Main St, New York"
+     * This can be obtained from reverse geocoding
+     */
+    val locationName: String? = null
 )
 
 /**

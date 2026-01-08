@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
@@ -35,6 +36,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.memoryassistant.data.models.Item
 import com.memoryassistant.data.repository.ItemRepository
 import com.memoryassistant.data.services.AudioService
+import com.memoryassistant.data.services.LocationService
 import com.memoryassistant.data.services.VisionService
 import kotlinx.coroutines.launch
 import java.io.File
@@ -85,6 +87,10 @@ fun AddEditItemScreen(
     var isRecording by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
     var isPlayingAudio by remember { mutableStateOf(false) }
+    var latitude by remember { mutableStateOf<Double?>(null) }  // GPS latitude
+    var longitude by remember { mutableStateOf<Double?>(null) }  // GPS longitude
+    var locationName by remember { mutableStateOf<String?>(null) }  // Location address
+    var isFetchingLocation by remember { mutableStateOf(false) }
 
     /**
      * Track if we're in edit mode
@@ -106,6 +112,11 @@ fun AddEditItemScreen(
      * Audio service for voice notes
      */
     val audioService = remember { AudioService(context) }
+
+    /**
+     * Location service for GPS tracking
+     */
+    val locationService = remember { LocationService(context) }
 
     /**
      * Detect labels in the selected image
@@ -143,6 +154,11 @@ fun AddEditItemScreen(
      * Microphone permission state
      */
     val micPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+
+    /**
+     * Location permission state
+     */
+    val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     /**
      * Create a temporary file for camera capture
@@ -203,6 +219,9 @@ fun AddEditItemScreen(
                     imageUri = it.imageUrl?.let { url -> Uri.parse(url) }
                     audioUri = it.audioUrl?.let { url -> Uri.parse(url) }
                     audioTranscription = it.audioTranscription ?: ""
+                    latitude = it.latitude
+                    longitude = it.longitude
+                    locationName = it.locationName
                 }
             }
         }
@@ -561,6 +580,115 @@ fun AddEditItemScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             /**
+             * GPS Location section
+             */
+            Text(
+                text = "Location (optional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Location fetching status
+            if (isFetchingLocation) {
+                Text(
+                    text = "📍 Getting your location...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Location display or get location button
+            if (latitude != null && longitude != null) {
+                // Show location card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = locationName ?: "Location saved",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Lat: ${"%.4f".format(latitude)}, Lon: ${"%.4f".format(longitude)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        // Delete button
+                        IconButton(
+                            onClick = {
+                                latitude = null
+                                longitude = null
+                                locationName = null
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove location",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Show get location button
+                OutlinedButton(
+                    onClick = {
+                        // Check location permission
+                        if (!locationPermissionState.status.isGranted) {
+                            locationPermissionState.launchPermissionRequest()
+                            return@OutlinedButton
+                        }
+
+                        // Get current location
+                        coroutineScope.launch {
+                            isFetchingLocation = true
+                            try {
+                                val locationData = locationService.getCurrentLocation()
+                                if (locationData != null) {
+                                    latitude = locationData.latitude
+                                    longitude = locationData.longitude
+                                    locationName = locationData.locationName
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                // TODO: Show error message
+                            } finally {
+                                isFetchingLocation = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add Location")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            /**
              * Save button
              */
             Button(
@@ -597,7 +725,10 @@ fun AddEditItemScreen(
                                             labels = labelsList,
                                             imageUrl = imageUri?.toString(),
                                             audioUrl = audioUri?.toString(),
-                                            audioTranscription = audioTranscription.ifBlank { null }
+                                            audioTranscription = audioTranscription.ifBlank { null },
+                                            latitude = latitude,
+                                            longitude = longitude,
+                                            locationName = locationName
                                         )
                                         repository.updateItem(updatedItem)
 
@@ -616,7 +747,10 @@ fun AddEditItemScreen(
                                     labels = labelsList,
                                     imageUrl = imageUri?.toString(),
                                     audioUrl = audioUri?.toString(),
-                                    audioTranscription = audioTranscription.ifBlank { null }
+                                    audioTranscription = audioTranscription.ifBlank { null },
+                                    latitude = latitude,
+                                    longitude = longitude,
+                                    locationName = locationName
                                 )
 
                                 // Navigate back

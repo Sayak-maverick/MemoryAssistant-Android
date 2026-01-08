@@ -24,6 +24,10 @@
     <!-- Microphone permission - Required for voice notes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Location permissions - Required for GPS tracking -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Storage permissions - Required to save images -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
