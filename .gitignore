@@ -45,6 +45,9 @@ output.json
 # Google Services (API Keys)
 google-services.json
 
+# Vision API Credentials - DO NOT COMMIT!
+app/src/main/res/raw/vision_credentials.json
+
 # OS-specific files
 .DS_Store
 Thumbs.db

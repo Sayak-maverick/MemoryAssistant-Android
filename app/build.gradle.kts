@@ -109,6 +109,10 @@ dependencies {
     // Accompanist - Permissions helper for Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
+    // Google Cloud Vision API - AI object detection
+    implementation("com.google.cloud:google-cloud-vision:3.20.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
+
     // Testing libraries (we'll use these later)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

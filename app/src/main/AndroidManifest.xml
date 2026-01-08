@@ -15,6 +15,9 @@
         Users will be asked to approve these when they install/use the app
     -->
 
+    <!-- Internet permission - Required for Google Vision API -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Camera permission - Required to take photos -->
     <uses-permission android:name="android.permission.CAMERA" />
 

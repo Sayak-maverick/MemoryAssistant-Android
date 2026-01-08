@@ -31,6 +31,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.memoryassistant.data.models.Item
 import com.memoryassistant.data.repository.ItemRepository
+import com.memoryassistant.data.services.VisionService
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -73,6 +74,8 @@ fun AddEditItemScreen(
     var isLoading by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showImageOptionsDialog by remember { mutableStateOf(false) }
+    var isDetectingLabels by remember { mutableStateOf(false) }  // AI detection in progress
+    var suggestedLabels by remember { mutableStateOf<List<String>>(emptyList()) }  // AI-detected labels
 
     /**
      * Track if we're in edit mode
@@ -84,6 +87,38 @@ fun AddEditItemScreen(
      */
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    /**
+     * Vision API service for object detection
+     */
+    val visionService = remember { VisionService(context) }
+
+    /**
+     * Detect labels in the selected image
+     */
+    fun detectLabelsInImage(uri: Uri) {
+        coroutineScope.launch {
+            isDetectingLabels = true
+            try {
+                val detectedLabels = visionService.detectLabels(uri)
+                suggestedLabels = detectedLabels
+
+                // Auto-suggest item name if empty
+                if (name.isEmpty() && detectedLabels.isNotEmpty()) {
+                    name = visionService.suggestItemName(detectedLabels)
+                }
+
+                // Auto-fill labels if empty
+                if (labels.isEmpty() && detectedLabels.isNotEmpty()) {
+                    labels = detectedLabels.joinToString(", ")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isDetectingLabels = false
+            }
+        }
+    }
 
     /**
      * Camera permission state
@@ -101,6 +136,7 @@ fun AddEditItemScreen(
 
     /**
      * Camera launcher - captures photo and saves to file
+     * Now with AI object detection!
      */
     val cameraImageFile = remember { mutableStateOf<File?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -108,7 +144,10 @@ fun AddEditItemScreen(
     ) { success ->
         if (success) {
             cameraImageFile.value?.let { file ->
-                imageUri = Uri.fromFile(file)
+                val uri = Uri.fromFile(file)
+                imageUri = uri
+                // Detect labels using Vision API
+                detectLabelsInImage(uri)
             }
         }
         showImageOptionsDialog = false
@@ -116,12 +155,15 @@ fun AddEditItemScreen(
 
     /**
      * Gallery launcher - picks photo from gallery
+     * Now with AI object detection!
      */
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             imageUri = it
+            // Detect labels using Vision API
+            detectLabelsInImage(it)
         }
         showImageOptionsDialog = false
     }
@@ -252,6 +294,26 @@ fun AddEditItemScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // AI Detection indicator
+            if (isDetectingLabels) {
+                Text(
+                    text = "🤖 AI is analyzing your image...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Suggested labels
+            if (suggestedLabels.isNotEmpty() && !isDetectingLabels) {
+                Text(
+                    text = "✨ AI detected: ${suggestedLabels.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Image preview or add photo button
             if (imageUri != null) {
                 // Show image with remove button
@@ -272,7 +334,10 @@ fun AddEditItemScreen(
 
                         // Remove button overlay
                         IconButton(
-                            onClick = { imageUri = null },
+                            onClick = {
+                                imageUri = null
+                                suggestedLabels = emptyList()
+                            },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
