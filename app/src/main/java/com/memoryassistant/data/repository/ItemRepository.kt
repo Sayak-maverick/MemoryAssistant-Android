@@ -2,6 +2,7 @@ package com.memoryassistant.data.repository
 
 import com.memoryassistant.data.database.ItemDao
 import com.memoryassistant.data.models.Item
+import com.memoryassistant.data.services.FirestoreService
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -20,8 +21,16 @@ import java.util.UUID
  * - Makes testing easier
  *
  * Think of it as a "manager" that handles all Item-related data operations.
+ *
+ * NEW in Step 10: Cloud Sync
+ * - Automatically syncs items to Firebase Firestore
+ * - Local database (Room) remains the source of truth
+ * - Cloud acts as backup and cross-device sync
  */
-class ItemRepository(private val itemDao: ItemDao) {
+class ItemRepository(
+    private val itemDao: ItemDao,
+    private val firestoreService: FirestoreService = FirestoreService()
+) {
 
     /**
      * Get all items from the database
@@ -101,6 +110,9 @@ class ItemRepository(private val itemDao: ItemDao) {
         )
 
         itemDao.insertItem(item)
+
+        // Sync to cloud
+        firestoreService.syncItemToCloud(item)
     }
 
     /**
@@ -110,6 +122,9 @@ class ItemRepository(private val itemDao: ItemDao) {
      */
     suspend fun updateItem(item: Item) {
         itemDao.updateItem(item)
+
+        // Sync to cloud
+        firestoreService.syncItemToCloud(item)
     }
 
     /**
@@ -119,6 +134,9 @@ class ItemRepository(private val itemDao: ItemDao) {
      */
     suspend fun deleteItem(item: Item) {
         itemDao.deleteItem(item)
+
+        // Delete from cloud
+        firestoreService.deleteItemFromCloud(item.id)
     }
 
     /**
@@ -128,6 +146,9 @@ class ItemRepository(private val itemDao: ItemDao) {
      */
     suspend fun deleteItemById(id: String) {
         itemDao.deleteItemById(id)
+
+        // Delete from cloud
+        firestoreService.deleteItemFromCloud(id)
     }
 
     /**
